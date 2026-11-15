@@ -40,9 +40,6 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Initialize CodeQL (Kotlin / Java)
         uses: github/codeql-action/init@v4
         with:
@@ -82,9 +79,6 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
 
       - name: Install cargo-ndk
         uses: taiki-e/install-action@v2
