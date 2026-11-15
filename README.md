@@ -18,6 +18,7 @@
 
 <p align="center">
   <a href="#features">Features</a> ·
+  <a href="#screenshots">Screenshots</a> ·
   <a href="#building-apk">Building APK</a> ·
   <a href="#licenses-and-attribution">Licenses &amp; Attribution</a> ·
   <a href="LICENSE-MIT">MIT</a> ·
@@ -38,6 +39,16 @@
 * **Scoped Android storage:** Storage Access Framework (`SAF`) file open/save streaming with path sanitization and canonical containment inside private app cache (`saf_staged/`).
 * **Keyboard, touch & themes:** hardware and soft-keyboard IME composition & relative selection sync (`ImeEditSession`), single-finger selection mode and two-finger pan/zoom handling, cutout/system-bar/keyboard safe insets, external Android `Presentation` output, and `System` / `Light` / `Dark` themes.
 * **Security & safety:** no panics allowed in non-test workspace crates (`#![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]`), bounded JNI arrays, outbound URL allowlist (`AndroidSecurityPolicy`), no `gridcraft-mcp` in the Android binary, automated `cargo audit` + CodeQL in CI, and native libraries linked with 16 KB ELF page-size alignment.
+
+## Screenshots
+
+<table>
+  <tr>
+    <td align="center"><img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.png" width="240" alt="GridOne Android Light theme formatting ribbon and budget spreadsheet"><br><sub>Light theme — Formatting ribbon &amp; formulas</sub></td>
+    <td align="center"><img src="fastlane/metadata/android/en-US/images/phoneScreenshots/2.png" width="240" alt="GridOne Android Dark theme sales dashboard with charts, sparklines, and conditional formatting"><br><sub>Dark theme — Charts, sparklines &amp; data bars</sub></td>
+    <td align="center"><img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3.png" width="240" alt="GridOne Android Dark theme formula bar with IME keypad, highlighted range reference, and function signature hint"><br><sub>Dark theme — Mobile IME formula entry &amp; range hint</sub></td>
+  </tr>
+</table>
 
 ## Building APK
 
