@@ -373,7 +373,12 @@ class GridCraftActivity : GameActivity() {
 
             val displayName = resolveDisplayName(uri)
             val stagedFile = allocateStagingFile(displayName)
-            copyUriBounded(uri, stagedFile)
+            try {
+                copyUriBounded(uri, stagedFile)
+            } catch (err: Exception) {
+                runCatching { stagedFile.delete() }
+                throw err
+            }
             val writable = isUriWritable(uri)
 
             mainHandler.post {
@@ -415,8 +420,7 @@ class GridCraftActivity : GameActivity() {
     private fun allocateStagingFile(displayName: String): File {
         val dir = File(cacheDir, SAF_STAGING_DIR).apply { mkdirs() }
         pruneOldStagingFiles(dir)
-        val safeName = sanitizeFilename(displayName)
-        return File(dir, "${UUID.randomUUID()}_$safeName")
+        return AndroidSecurityPolicy.allocateSafeStagingFile(dir, displayName)
     }
 
     private fun pruneOldStagingFiles(dir: File) {
@@ -427,13 +431,8 @@ class GridCraftActivity : GameActivity() {
             .forEach { runCatching { it.delete() } }
     }
 
-    private fun sanitizeFilename(raw: String): String {
-        val base = raw.substringAfterLast('/').substringAfterLast('\\')
-            .replace("..", "_")
-            .replace(Regex("[^A-Za-z0-9._\\- ()+]"), "_")
-            .trim()
-        return if (base.isEmpty()) "workbook.xlsx" else base
-    }
+    private fun sanitizeFilename(raw: String): String =
+        AndroidSecurityPolicy.sanitizeFilename(raw)
 
     private fun resolveDisplayName(uri: Uri): String {
         if (uri.scheme == ContentResolver.SCHEME_CONTENT) {
@@ -717,9 +716,8 @@ class GridCraftActivity : GameActivity() {
 
     @Suppress("unused")
     fun jniOpenUrl(url: String) {
+        if (!AndroidSecurityPolicy.isAllowedExternalUrl(url)) return
         val parsed = runCatching { Uri.parse(url) }.getOrNull() ?: return
-        val scheme = parsed.scheme?.lowercase(Locale.ROOT)
-        if (scheme != "https" && scheme != "http") return
         mainHandler.post {
             runCatching {
                 startActivity(Intent(Intent.ACTION_VIEW, parsed))

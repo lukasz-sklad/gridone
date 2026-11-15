@@ -19,16 +19,20 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      actions: read
       security-events: write
     steps:
       - uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - name: Run cargo-audit
-        uses: rustsec/audit-check@v2
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          tool: cargo-audit
+
+      - name: Run cargo-audit (deny vulnerabilities and unsound crates)
+        run: cargo audit --deny unsound
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -40,15 +44,18 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Initialize CodeQL (Kotlin / Java)
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
-          languages: java-kotlin
+          languages: 'java-kotlin'
+          build-mode: 'manual'
 
-      - name: Compile Android Kotlin/Java sources for CodeQL
-        run: cd android && chmod +x gradlew && ./gradlew compileFossDebugKotlin compilePlayDebugKotlin --no-daemon
+      - name: Compile Android Kotlin/Java & run Java 21 JVM unit tests
+        run: cd android && chmod +x gradlew && ./gradlew compileFossReleaseSources compilePlayReleaseSources testFossDebugUnitTest testPlayDebugUnitTest --rerun-tasks --no-build-cache --no-configuration-cache --no-daemon
 
       - name: Finalize CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:java-kotlin"
 
   build-apk:
     name: Build & Test Android APK
@@ -80,14 +87,19 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install cargo-ndk
-        uses: taiki-e/install-action@cargo-ndk
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-ndk
 
       - name: Host Rust checks & tests
         run: |
           cargo fmt --all -- --check
           cargo test -p gridcraft-android
           cargo test -p gridcraft-ui-egui --lib
-          cargo clippy -p gridcraft-android -p gridcraft-ui-egui -p xtask --all-targets -- -D warnings
+          cargo test -p gridcraft-xlsx --lib
+          cargo test -p gridcraft-engine
+          cargo test -p gridcraft-cli --bin gridcraft-cli
+          cargo clippy -p gridcraft-android -p gridcraft-ui-egui -p gridcraft-xlsx -p gridcraft-engine -p gridcraft-cli -p xtask --all-targets -- -D warnings
           cargo xtask layers
           cargo xtask assets
 
@@ -99,6 +111,13 @@ jobs:
           cargo ndk -t arm64-v8a -t x86_64 \
             -o android/app/src/main/jniLibs \
             build --release -p gridcraft-android
+          READELF="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          for abi in arm64-v8a x86_64; do
+            so="android/app/src/main/jniLibs/${abi}/libgridcraft_android.so"
+            echo "Checking 16 KB LOAD alignment for ${so}"
+            "${READELF}" -l "${so}" | grep -E "LOAD" | grep -qE "0x(4000|10000)$"
+            ! "${READELF}" -l "${so}" | grep -E "LOAD" | grep -qvE "0x(4000|10000)$"
+          done
 
       - name: Run Android unit tests & assemble APKs
         run: |

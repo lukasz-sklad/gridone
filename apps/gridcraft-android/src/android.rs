@@ -16,7 +16,8 @@ use serde_json::json;
 use crate::ime;
 use crate::mobile::{
     FileAnswer, MobileStrings, SafeInsetsDp, SafeInsetsPx, ShellPrefs, TouchGestureFilter, char_idx_to_utf16, downsample_rgba, fit_cast_dimensions,
-    format_prefs, hover_to_egui_event, offset_char_idx, parse_prefs, prefs_write_atomic, take_ime_frame_slice, to_egui_events, wheel_to_egui_event,
+    format_prefs, hover_to_egui_event, is_allowed_external_url, offset_char_idx, parse_prefs, prefs_write_atomic, take_ime_frame_slice,
+    to_egui_events, wheel_to_egui_event,
 };
 
 struct ActivityBridge;
@@ -261,7 +262,13 @@ fn build_services(pending_save: &Arc<Mutex<Option<PendingSaveIntent>>>) -> Servi
             }
             ActivityBridge::launch_save_picker(name);
         })),
-        open_url: Some(Box::new(ActivityBridge::open_url)),
+        open_url: Some(Box::new(|url| {
+            if is_allowed_external_url(url) {
+                ActivityBridge::open_url(url);
+            } else {
+                log::warn!("Blocked disallowed external URL");
+            }
+        })),
         paste_text: Some(Box::new(ActivityBridge::get_clipboard_text)),
         ..Default::default()
     }
@@ -673,7 +680,13 @@ impl eframe::App for GridAndroidShell {
             for cmd in &out.commands {
                 match cmd {
                     egui::OutputCommand::CopyText(text) => ActivityBridge::set_clipboard_text(text),
-                    egui::OutputCommand::OpenUrl(open) => ActivityBridge::open_url(&open.url),
+                    egui::OutputCommand::OpenUrl(open) => {
+                        if is_allowed_external_url(&open.url) {
+                            ActivityBridge::open_url(&open.url);
+                        } else {
+                            log::warn!("Blocked disallowed external URL");
+                        }
+                    }
                     _ => {}
                 }
             }

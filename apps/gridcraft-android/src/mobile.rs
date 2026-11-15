@@ -1,7 +1,68 @@
 //! Host-testable mobile input, safe-insets, touch-selection filter, theme state, and file staging helpers.
 
 use std::io::Write;
-use std::path::Path;
+use std::path::{Component, Path};
+
+pub const MAX_EXTERNAL_URL_LEN: usize = 2048;
+
+const BLOCKED_DISCORD_HOSTS: &[&str] = &["discord.gg", "discord.com", "discordapp.com", "discordapp.net"];
+
+/// Validates an external URL before crossing JNI into Android's `ACTION_VIEW`.
+/// Rejects non-HTTP(S) schemes, whitespace/control chars, userinfo (`user@host`),
+/// blocked Discord domains, and overly long strings.
+pub fn is_allowed_external_url(raw: &str) -> bool {
+    if raw.is_empty() || raw.len() > MAX_EXTERNAL_URL_LEN {
+        return false;
+    }
+    if raw.chars().any(|ch| ch.is_whitespace() || ch.is_control()) {
+        return false;
+    }
+    let after_scheme = if raw.get(..8).is_some_and(|p| p.eq_ignore_ascii_case("https://")) {
+        &raw[8..]
+    } else if raw.get(..7).is_some_and(|p| p.eq_ignore_ascii_case("http://")) {
+        &raw[7..]
+    } else {
+        return false;
+    };
+    let authority = after_scheme.split(['/', '?', '#']).next().unwrap_or("");
+    if authority.is_empty() || authority.contains('@') {
+        return false;
+    }
+    let host = if let Some(rest) = authority.strip_prefix('[') {
+        let Some((inner, tail)) = rest.split_once(']') else {
+            return false;
+        };
+        if inner.is_empty() || (!tail.is_empty() && !tail.starts_with(':')) {
+            return false;
+        }
+        inner
+    } else if let Some((h, port)) = authority.split_once(':') {
+        if port.is_empty() || !port.bytes().all(|b| b.is_ascii_digit()) {
+            return false;
+        }
+        h
+    } else {
+        authority
+    };
+    let host_lower = host.trim_end_matches('.').to_ascii_lowercase();
+    if host_lower.is_empty() {
+        return false;
+    }
+    !BLOCKED_DISCORD_HOSTS
+        .iter()
+        .any(|blocked| host_lower == *blocked || (host_lower.ends_with(blocked) && host_lower[..host_lower.len() - blocked.len()].ends_with('.')))
+}
+
+/// Checks that a staged file path stays strictly inside `staging_dir` without `..` traversal.
+pub fn is_safe_staged_path(staging_dir: &Path, candidate: &Path) -> bool {
+    if candidate.components().any(|c| matches!(c, Component::ParentDir)) {
+        return false;
+    }
+    let Ok(rel) = candidate.strip_prefix(staging_dir) else {
+        return false;
+    };
+    !rel.as_os_str().is_empty()
+}
 
 /// Raw Android system window + IME insets in physical pixels.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -688,5 +749,115 @@ mod tests {
         let pixels = vec![egui::Color32::from_rgb(10, 20, 30); 4];
         let rgba = downsample_rgba(&pixels, 2, 2, 1, 1);
         assert_eq!(rgba, vec![10, 20, 30, 255]);
+    }
+
+    #[test]
+    fn security_url_allowlist_blocks_dangerous_schemes_userinfo_and_discord() {
+        assert!(is_allowed_external_url("https://github.com/lukasz-sklad/gridone"));
+        assert!(is_allowed_external_url("HTTP://example.org:8080/sheet?id=1"));
+        assert!(is_allowed_external_url("https://[2001:db8::1]/test"));
+
+        assert!(!is_allowed_external_url(""));
+        assert!(!is_allowed_external_url("javascript:alert(1)"));
+        assert!(!is_allowed_external_url("file:///data/data/one.lmk.gridcraft/files/secret"));
+        assert!(!is_allowed_external_url("content://com.android.providers/item/1"));
+        assert!(!is_allowed_external_url("intent://scan/#Intent;scheme=zxing;end"));
+        assert!(!is_allowed_external_url("data:text/html,<script>alert(1)</script>"));
+        assert!(!is_allowed_external_url("https://github.com@evil.example/phish"));
+        assert!(!is_allowed_external_url("https://evil.com\r\nX-Injected: 1"));
+        assert!(!is_allowed_external_url("https://discord.gg/artcraft"));
+        assert!(!is_allowed_external_url("https://discord.com/invite/xyz"));
+        assert!(!is_allowed_external_url("https://cdn.discordapp.com/attachments/1/2/a.xlsx"));
+        let overlong = format!("https://example.com/{}", "a".repeat(2100));
+        assert!(!is_allowed_external_url(&overlong));
+    }
+
+    #[test]
+    fn security_stage_filename_and_path_containment_rejects_traversal() {
+        assert_eq!(sanitize_stage_filename("..\\..\\etc\\passwd"), "passwd");
+        assert_eq!(sanitize_stage_filename("evil\0name.xlsx"), "evil_name.xlsx");
+        assert_eq!(sanitize_stage_filename("."), "workbook.xlsx");
+        assert_eq!(sanitize_stage_filename(".."), "workbook.xlsx");
+
+        let dir = Path::new("/data/user/0/one.lmk.gridcraft/cache/saf_staged");
+        assert!(is_safe_staged_path(dir, Path::new("/data/user/0/one.lmk.gridcraft/cache/saf_staged/uuid_book.xlsx")));
+        assert!(!is_safe_staged_path(dir, dir));
+        assert!(!is_safe_staged_path(dir, Path::new("/data/user/0/one.lmk.gridcraft/cache/saf_staged/../prefs.cfg")));
+        assert!(!is_safe_staged_path(dir, Path::new("/data/user/0/one.lmk.gridcraft/cache/saf_staged_evil/book.xlsx")));
+    }
+
+    #[test]
+    fn security_ime_batch_and_insets_clamp_adversarial_bounds() {
+        let mut queue = vec![AndroidInput::ImeBatch {
+            seq: u64::MAX,
+            ops: vec![
+                ImeBatchOp::DeleteSurrounding { before_cp: usize::MAX, after_cp: usize::MAX },
+                ImeBatchOp::SetSelectionRelative { delta_anchor_cp: i32::MIN, delta_focus_cp: i32::MAX },
+                ImeBatchOp::Preedit { text: "Żółć".into(), anchor_cp: usize::MAX, focus_cp: 2 },
+                ImeBatchOp::TapKey { key_code: i32::MIN },
+            ],
+        }];
+        let slice = take_ime_frame_slice(&mut queue);
+        assert_eq!(slice.latest_seq, Some(u64::MAX));
+        assert!(queue.is_empty());
+
+        let mut active = false;
+        let out = to_egui_events(&slice.items, &mut active);
+        assert!(active);
+        assert_eq!(out.rel_moves.len(), 1);
+        assert_eq!(out.events.len(), 2049);
+
+        assert_eq!(offset_char_idx("A😊ż", 1, i32::MIN), 0);
+        assert_eq!(offset_char_idx("A😊ż", 1, i32::MAX), 3);
+
+        let dp = SafeInsetsDp::from_px(SafeInsetsPx { left: -999, top: i32::MIN, right: 0, bottom: 50, ime_bottom: -20 }, f32::NAN);
+        assert_eq!(dp.left, 0.0);
+        assert_eq!(dp.top, 0.0);
+        assert_eq!(dp.bottom_for_ime_aware_panel(), 50.0);
+    }
+
+    #[test]
+    fn security_hostile_xlsx_and_dos_formulas_do_not_panic_in_engine() {
+        assert!(gridcraft_engine::io::open_bytes("empty.xlsx", b"").is_err());
+        assert!(gridcraft_engine::io::open_bytes("corrupt.xlsx", b"PK\x03\x04truncated-garbage\x00\xff").is_err());
+        assert!(gridcraft_engine::io::open_bytes("bad_ods.ods", b"PK\x03\x04corrupt-ods").is_err());
+        assert!(gridcraft_engine::io::open_bytes("bad_cfb.xls", b"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1truncated").is_err());
+        let _ = gridcraft_engine::io::open_bytes(
+            "bomb.xml",
+            b"<?xml version=\"1.0\"?><!DOCTYPE lolz [<!ENTITY lol \"lol\"><!ENTITY lol2 \"&lol;&lol;\">]><Workbook>&lol2;</Workbook>",
+        );
+
+        let mut session = gridcraft_engine::Session::default();
+        let _ = session.execute("cell.set", serde_json::json!({ "cell": "A1", "input": "=REPT(\"X\", 100000000)" }));
+        let _ = session.execute("cell.set", serde_json::json!({ "cell": "A2", "input": "=SEQUENCE(10000000, 10000000)" }));
+        let _ = session.execute("cell.set", serde_json::json!({ "cell": "B1", "input": "=B2+1" }));
+        let _ = session.execute("cell.set", serde_json::json!({ "cell": "B2", "input": "=B1+1" }));
+    }
+
+    #[test]
+    fn security_manifests_and_ui_enforce_offline_foss_java21_and_clean_branding() {
+        let main_manifest = include_str!("../../../android/app/src/main/AndroidManifest.xml");
+        assert!(main_manifest.contains("android:allowBackup=\"false\""));
+        assert!(!main_manifest.contains("android.permission.INTERNET"));
+        assert!(!main_manifest.contains("usesCleartextTraffic"));
+        assert!(!main_manifest.to_ascii_lowercase().contains("discord"));
+        assert!(!main_manifest.to_ascii_lowercase().contains("getartcraft"));
+
+        let play_manifest = include_str!("../../../android/app/src/play/AndroidManifest.xml");
+        assert!(play_manifest.contains("android.permission.INTERNET"));
+        assert!(!play_manifest.contains("android:allowBackup=\"true\""));
+        assert!(!play_manifest.contains("usesCleartextTraffic"));
+
+        let app_gradle = include_str!("../../../android/app/build.gradle.kts");
+        assert!(!app_gradle.contains("jvmToolchain"));
+        assert!(!app_gradle.contains("foojay"));
+
+        for src in [include_str!("../../../crates/ui-egui/src/dialogs/about.rs"), include_str!("../../gridcraft/src/native_menu.rs")] {
+            let lower = src.to_ascii_lowercase();
+            assert!(!lower.contains("discord.gg"));
+            assert!(!lower.contains("discord.com"));
+            assert!(!lower.contains("getartcraft.com"));
+            assert!(!lower.contains("artcraft marks"));
+        }
     }
 }

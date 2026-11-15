@@ -201,12 +201,15 @@ pub extern "system" fn Java_one_lmk_gridcraft_GridCraftActivity_nativeOnImeBatch
 ) {
     let _ = unowned_env.with_env(|env| -> jni::errors::Result<()> {
         let len = op_kinds.len(env)?;
-        if len == 0 {
+        if len == 0 || len > 4096 {
             return Ok(());
         }
         let mut kinds_buf = vec![0i32; len];
         op_kinds.get_region(env, 0, &mut kinds_buf)?;
         let ints_len = int_args.len(env)?;
+        if ints_len > 8192 {
+            return Ok(());
+        }
         let mut ints_buf = vec![0i32; ints_len];
         if ints_len > 0 {
             int_args.get_region(env, 0, &mut ints_buf)?;

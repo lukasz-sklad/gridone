@@ -82,4 +82,28 @@ class ImeEditSessionTest {
         assertEquals(2, batch.opKinds.size)
         assertEquals("A1", session.text)
     }
+
+    @Test
+    fun adversarialBoundsClampSafelyWithoutExceptions() {
+        val session = ImeEditSession()
+        session.reset("abc", -50, 999999)
+        assertEquals(0, session.selectionStart)
+        assertEquals(3, session.selectionEnd)
+
+        session.setComposingRegion(-999, Int.MAX_VALUE)
+        assertEquals(0, session.currentComposingStart)
+        assertEquals(3, session.currentComposingEnd)
+
+        val staleSync = session.syncFromEngine("stale", 0, 1, ackSeq = -1L)
+        assertFalse(staleSync.changed)
+
+        val sync = session.syncFromEngine("Żółć🚀", -10, Int.MAX_VALUE, ackSeq = session.latestSeq)
+        assertTrue(sync.changed)
+        assertEquals(0, session.selectionStart)
+        assertEquals("Żółć🚀".length, session.selectionEnd)
+
+        val batch = session.setComposingText("ok", 1000)
+        assertNotNull(batch)
+        assertEquals("ok", session.text)
+    }
 }

@@ -154,7 +154,7 @@ private class PlayCastController(
         val now = System.currentTimeMillis()
         if (!force && now - lastSubmitMs < 350L) return
         val url = httpServer.currentFrameUrl() ?: return
-        val rev = url.substringAfterLast("frame_").substringBefore(".png").toLongOrNull() ?: 0L
+        val rev = url.substringAfterLast('/').substringBefore(".png").toLongOrNull() ?: 0L
         if (!force && rev == lastSubmittedRev) return
         lastSubmittedRev = rev
         lastSubmitMs = now
