@@ -10,7 +10,7 @@ readme = "README.md"
 workspace = true
 
 [dependencies]
-harfrust = "=0.12.0"
+harfrust = "=0.16.0"
 skrifa = { workspace = true }
 unicode-bidi = "=0.3.18"
 
