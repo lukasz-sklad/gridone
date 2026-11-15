@@ -1,0 +1,118 @@
+name: Android CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  cve-audit:
+    name: Security Audit & CodeQL
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Run cargo-audit
+        uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Initialize CodeQL (Kotlin / Java)
+        uses: github/codeql-action/init@v3
+        with:
+          languages: java-kotlin
+
+      - name: Compile Android Kotlin/Java sources for CodeQL
+        run: cd android && chmod +x gradlew && ./gradlew compileFossDebugKotlin compilePlayDebugKotlin --no-daemon
+
+      - name: Finalize CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+  build-apk:
+    name: Build & Test Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust & Android targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,x86_64-linux-android
+          components: clippy,rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Setup Android NDK r27c
+        id: setup-ndk
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r27c
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install cargo-ndk
+        uses: taiki-e/install-action@cargo-ndk
+
+      - name: Host Rust checks & tests
+        run: |
+          cargo fmt --all -- --check
+          cargo test -p gridcraft-android
+          cargo test -p gridcraft-ui-egui --lib
+          cargo clippy -p gridcraft-android -p gridcraft-ui-egui -p xtask --all-targets -- -D warnings
+          cargo xtask layers
+          cargo xtask assets
+
+      - name: Build Android native libraries (16 KB aligned)
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          RUSTFLAGS: "-C link-arg=-Wl,-z,max-page-size=16384"
+        run: |
+          cargo ndk -t arm64-v8a -t x86_64 \
+            -o android/app/src/main/jniLibs \
+            build --release -p gridcraft-android
+
+      - name: Run Android unit tests & assemble APKs
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew testFossDebugUnitTest testPlayDebugUnitTest \
+            assembleFossDebug assemblePlayDebug assembleFossRelease assemblePlayRelease --no-daemon
+
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: gridcraft-android-apks
+          path: |
+            android/app/build/outputs/apk/foss/debug/*.apk
+            android/app/build/outputs/apk/play/debug/*.apk
+            android/app/build/outputs/apk/foss/release/*.apk
+            android/app/build/outputs/apk/play/release/*.apk

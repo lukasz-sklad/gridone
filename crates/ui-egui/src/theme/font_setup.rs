@@ -301,6 +301,11 @@ pub(super) fn candidates(role: &str) -> Vec<(String, u32)> {
     let mut add = |s: String, i: u32| v.push((s, i));
     match role {
         "ui" => {
+            if cfg!(target_os = "android") {
+                add("/system/fonts/Roboto-Regular.ttf".into(), 0);
+                add("/system/fonts/RobotoStatic-Regular.ttf".into(), 0);
+                add("/system/fonts/NotoSans-Regular.ttf".into(), 0);
+            }
             add(format!("{mac_sys}/SFNS.ttf"), 0);
             add(format!("{mac_sys}/HelveticaNeue.ttc"), 0);
             add(format!("{win}\\segoeui.ttf"), 0);
@@ -317,6 +322,11 @@ pub(super) fn candidates(role: &str) -> Vec<(String, u32)> {
             add("/usr/share/fonts/liberation-sans-fonts/LiberationSans-Regular.ttf".into(), 0);
         }
         "ui-bold" => {
+            if cfg!(target_os = "android") {
+                add("/system/fonts/Roboto-Bold.ttf".into(), 0);
+                add("/system/fonts/Roboto-Medium.ttf".into(), 0);
+                add("/system/fonts/NotoSans-Bold.ttf".into(), 0);
+            }
             add(format!("{mac_sys}/HelveticaNeue.ttc"), 1);
             add(format!("{win}\\segoeuib.ttf"), 0);
             for p in in_dirs(&lin, &["noto/NotoSans-Bold.ttf", "dejavu/DejaVuSans-Bold.ttf", "liberation/LiberationSans-Bold.ttf"]) {
@@ -327,6 +337,16 @@ pub(super) fn candidates(role: &str) -> Vec<(String, u32)> {
             add("/usr/share/fonts/liberation-sans-fonts/LiberationSans-Bold.ttf".into(), 0);
         }
         "cell" | "cell-bold" | "cell-italic" | "cell-bold-italic" => {
+            if cfg!(target_os = "android") {
+                let roboto = match role {
+                    "cell" => "Roboto-Regular.ttf",
+                    "cell-bold" => "Roboto-Bold.ttf",
+                    "cell-italic" => "Roboto-Italic.ttf",
+                    _ => "Roboto-BoldItalic.ttf",
+                };
+                add(format!("/system/fonts/{roboto}"), 0);
+                add("/system/fonts/Roboto-Regular.ttf".into(), 0);
+            }
             let (carlito, calibri_win, calibri_mac, arial_mac, arial_win, lib, dejavu) = match role {
                 "cell" => {
                     ("Carlito-Regular.ttf", "calibri.ttf", "Calibri.ttf", "Arial.ttf", "arial.ttf", "LiberationSans-Regular.ttf", "DejaVuSans.ttf")
@@ -378,6 +398,10 @@ pub(super) fn candidates(role: &str) -> Vec<(String, u32)> {
             add(format!("/usr/share/fonts/dejavu-sans-fonts/{dejavu}"), 0);
         }
         "serif" => {
+            if cfg!(target_os = "android") {
+                add("/system/fonts/NotoSerif-Regular.ttf".into(), 0);
+                add("/system/fonts/DroidSerif-Regular.ttf".into(), 0);
+            }
             add(format!("{mac_sup}/Times New Roman.ttf"), 0);
             add(format!("{win}\\times.ttf"), 0);
             for p in in_dirs(&lin, &["liberation/LiberationSerif-Regular.ttf", "dejavu/DejaVuSerif.ttf"]) {
@@ -424,6 +448,11 @@ pub(super) fn candidates(role: &str) -> Vec<(String, u32)> {
             }
         }
         "mono" => {
+            if cfg!(target_os = "android") {
+                add("/system/fonts/RobotoMono-Regular.ttf".into(), 0);
+                add("/system/fonts/DroidSansMono.ttf".into(), 0);
+                add("/system/fonts/CutiveMono.ttf".into(), 0);
+            }
             add(format!("{mac_sys}/SFNSMono.ttf"), 0);
             add(format!("{mac_sys}/Menlo.ttc"), 0);
             add(format!("{win}\\consola.ttf"), 0);

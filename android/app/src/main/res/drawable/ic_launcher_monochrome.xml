@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+    <group
+        android:translateX="97.28"
+        android:translateY="97.28"
+        android:scaleX="0.62"
+        android:scaleY="0.62">
+        <group
+            android:rotation="-6"
+            android:pivotX="256"
+            android:pivotY="268">
+            <path
+                android:pathData="M112,76 H336 L404,144 V440 H112 Z"
+                android:strokeColor="#000000"
+                android:strokeWidth="16"
+                android:strokeLineJoin="round"
+                android:strokeLineCap="round" />
+            <path
+                android:pathData="M336,76 V144 H404"
+                android:strokeColor="#000000"
+                android:strokeWidth="12"
+                android:strokeLineJoin="round"
+                android:strokeLineCap="round" />
+            <path
+                android:pathData="M146,106 H272 M146,130 H232"
+                android:strokeColor="#000000"
+                android:strokeWidth="12"
+                android:strokeLineCap="round" />
+            <path
+                android:pathData="M112,164 H404 M112,204 H404 M112,250 H404 M112,296 H404 M112,342 H404 M112,388 H404 M164,164 V440 M244,164 V440 M324,164 V440"
+                android:strokeColor="#000000"
+                android:strokeWidth="8"
+                android:strokeLineJoin="round"
+                android:strokeLineCap="round" />
+            <path
+                android:pathData="M244,250 H324 V296 H244 Z"
+                android:strokeColor="#000000"
+                android:strokeWidth="18"
+                android:strokeLineJoin="round" />
+            <path
+                android:pathData="M312,284 H336 V308 H312 Z"
+                android:fillColor="#000000" />
+            <path
+                android:pathData="M252,410 H316 M252,424 H316"
+                android:strokeColor="#000000"
+                android:strokeWidth="8"
+                android:strokeLineCap="round" />
+        </group>
+    </group>
+</vector>

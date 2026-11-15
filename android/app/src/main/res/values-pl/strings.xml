@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Grid</string>
+    <string name="cast_menu_title">Przesyłanie i ekran zewnętrzny</string>
+    <string name="cast_route_choose">Wybierz urządzenie Chromecast</string>
+    <string name="cast_disconnect">Rozłącz przesyłanie</string>
+    <string name="cast_system_settings">Otwórz ustawienia ekranu bezprzewodowego</string>
+    <string name="cast_status_display">Podłączono ekran zewnętrzny (%1$dx%2$d)</string>
+    <string name="cast_status_connected">Przesyłanie na: %1$s</string>
+    <string name="cast_status_idle">Brak aktywnego ekranu zewnętrznego ani sesji Cast.</string>
+    <string name="close">Zamknij</string>
+</resources>

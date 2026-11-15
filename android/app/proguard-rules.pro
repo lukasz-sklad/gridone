@@ -1,0 +1,3 @@
+-keep class one.lmk.gridcraft.** { *; }
+-keepclassmembers class one.lmk.gridcraft.** { *; }
+-dontwarn javax.annotation.**

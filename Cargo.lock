@@ -171,6 +171,7 @@ dependencies = [
  "ndk-context",
  "ndk-sys",
  "num_enum",
+ "simd_cesu8",
  "thiserror 2.0.21",
 ]
 
@@ -2150,6 +2151,20 @@ dependencies = [
  "serde_json",
  "winit",
  "winresource",
+]
+
+[[package]]
+name = "gridcraft-android"
+version = "0.19.1"
+dependencies = [
+ "android-activity",
+ "eframe",
+ "egui",
+ "gridcraft-engine",
+ "gridcraft-ui-egui",
+ "jni",
+ "log",
+ "serde_json",
 ]
 
 [[package]]

@@ -8,7 +8,7 @@
 
 /// GridCraft as craft-update knows it, with its 128 px icon and accent colour: the update
 /// prompt shows both, and an AppImage's menu entry gets the icon.
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
 pub const UPDATE_APP: craft_update::app::App = craft_update::app::App {
     icon_png: Some(include_bytes!("../../../assets/app-icon/hicolor/128x128/apps/ai.storyteller.gridcraft.png")),
     accent: Some([0x1f, 0x9d, 0x55]),
@@ -27,7 +27,7 @@ mod craft_fonts_policy;
 pub mod credits;
 pub mod dialogs;
 pub mod dnd;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
 pub mod doc_windows;
 pub mod editor;
 pub mod equation;
@@ -56,7 +56,7 @@ pub mod tabs;
 pub mod text_box;
 mod text_direction;
 pub mod theme;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
 mod updates_ui;
 pub mod widgets;
 mod window_ui;
@@ -344,7 +344,7 @@ pub struct SheetApp {
     /// View › Arrange All's layout and windows, waiting for the native windows to move.
     pub arrange_windows: Option<(String, Vec<u64>)>,
     /// The update check, the startup prompt and a running self-update (desktop only).
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
     updates_rt: updates_ui::Runtime,
 }
 

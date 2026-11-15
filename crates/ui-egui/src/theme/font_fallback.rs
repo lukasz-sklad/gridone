@@ -13,7 +13,35 @@ use super::font_setup::{in_dirs, try_load};
 #[cfg(not(target_arch = "wasm32"))]
 pub(super) fn load_fallback(fonts: &mut FontDefinitions, han: HanOrder) -> Vec<String> {
     let loaded = preferred_file(fonts, fontconfig_arabic());
-    load_faces(fonts, fallback_faces(han), loaded)
+    let mut faces = fallback_faces(han);
+    if cfg!(target_os = "android") {
+        let han_face = if han == HanOrder::Japanese { 0 } else { 2 };
+        let android_cands: Vec<(&'static str, Vec<(String, u32)>)> = vec![
+            ("sys-cjk-han-android", vec![("/system/fonts/NotoSansCJK-Regular.ttc".into(), han_face)]),
+            ("sys-thai-android", vec![("/system/fonts/NotoSansThai-Regular.ttf".into(), 0), ("/system/fonts/NotoSansThaiUI-Regular.ttf".into(), 0)]),
+            ("sys-lao-android", vec![("/system/fonts/NotoSansLao-Regular.ttf".into(), 0), ("/system/fonts/NotoSansLaoUI-Regular.ttf".into(), 0)]),
+            ("sys-hebrew-android", vec![("/system/fonts/NotoSansHebrew-Regular.ttf".into(), 0)]),
+            (
+                "sys-arabic-android",
+                vec![
+                    ("/system/fonts/NotoNaskhArabic-Regular.ttf".into(), 0),
+                    ("/system/fonts/NotoNaskhArabicUI-Regular.ttf".into(), 0),
+                    ("/system/fonts/NotoSansArabic-Regular.ttf".into(), 0),
+                ],
+            ),
+            (
+                "sys-symbols-android",
+                vec![
+                    ("/system/fonts/NotoSansSymbols-Regular-Subsetted.ttf".into(), 0),
+                    ("/system/fonts/NotoSansSymbols-Regular-Subsetted2.ttf".into(), 0),
+                ],
+            ),
+        ];
+        for (key, cands) in android_cands.into_iter().rev() {
+            faces.insert(0, (key, cands));
+        }
+    }
+    load_faces(fonts, faces, loaded)
 }
 
 /// The preferred Arabic file, once [`load_preferred_arabic`] has loaded it: a file that failed to
@@ -73,7 +101,7 @@ pub(super) const PREFERRED_ARABIC: &str = "sys-arabic-preferred";
 
 /// The face fontconfig prefers for Arabic, such as a Vazirmatn the user set as their Arabic font
 /// (#229), kept only when it has Arabic letters. Asked once per process.
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(all(unix, not(any(target_os = "macos", target_os = "android"))))]
 pub(super) fn fontconfig_arabic() -> Option<(String, u32)> {
     static PREFERRED: std::sync::OnceLock<Option<(String, u32)>> = std::sync::OnceLock::new();
     PREFERRED
@@ -86,14 +114,14 @@ pub(super) fn fontconfig_arabic() -> Option<(String, u32)> {
         .clone()
 }
 
-#[cfg(all(not(target_arch = "wasm32"), not(all(unix, not(target_os = "macos")))))]
+#[cfg(all(not(target_arch = "wasm32"), not(all(unix, not(any(target_os = "macos", target_os = "android"))))))]
 pub(super) fn fontconfig_arabic() -> Option<(String, u32)> {
     None
 }
 
 /// The file and face index from `fc-match --format='%{file}\n%{index}\n'`. fontconfig packs a
 /// variable font's named instance into the upper 16 bits of the index; only the face index is kept.
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(all(unix, not(any(target_os = "macos", target_os = "android"))))]
 pub(super) fn parse_fc_match(out: &str) -> Option<(String, u32)> {
     let mut lines = out.lines().map(str::trim);
     let file = lines.next().filter(|file| !file.is_empty())?;
@@ -101,7 +129,7 @@ pub(super) fn parse_fc_match(out: &str) -> Option<(String, u32)> {
     Some((file.to_owned(), index))
 }
 
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(all(unix, not(any(target_os = "macos", target_os = "android"))))]
 pub(super) fn covers_arabic(bytes: &[u8], index: u32) -> bool {
     use skrifa::MetadataProvider;
     skrifa::FontRef::from_index(bytes, index).is_ok_and(|font| "العربية".chars().all(|ch| font.charmap().map(ch).is_some()))

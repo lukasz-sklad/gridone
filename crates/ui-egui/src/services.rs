@@ -4,6 +4,7 @@ type PickSave = Box<dyn Fn(&str) -> Option<String>>;
 type OpenUrl = Box<dyn Fn(&str)>;
 type CopyHtml = Box<dyn FnMut(&str, &str) -> Result<(), String>>;
 type Download = Box<dyn Fn(&str, &[u8])>;
+type SaveAsync = Box<dyn Fn(&str)>;
 type PrintPdf = Box<dyn Fn(&[u8])>;
 
 /// Host services the platform shell provides (file pickers, opening URLs).
@@ -35,10 +36,12 @@ pub struct Services {
     /// Read the picture on the system clipboard for the ribbon and menu Paste commands when it
     /// holds no text (Cmd/Ctrl+V gets it from egui's `Event::PasteImage`).
     pub paste_image: Option<Box<dyn FnMut() -> Option<image::RgbaImage>>>,
-    /// Web: deliver a file to the user (name, bytes).
+    /// Web/Android: deliver a file to the user (name, bytes).
     pub download: Option<Download>,
-    /// Web: start an asynchronous file pick; the bytes arrive later in `inbox`.
+    /// Web/Android: start an asynchronous file pick; the bytes arrive later in `inbox` or via `open_path`.
     pub open_async: Option<Box<dyn Fn()>>,
+    /// Android: start an asynchronous Save As destination pick with a suggested file name.
+    pub save_async: Option<SaveAsync>,
     /// Files delivered asynchronously (name, bytes), opened on the next frame.
     pub inbox: Option<Inbox>,
     /// Web: hand PDF bytes to the browser's print flow directly (no download,

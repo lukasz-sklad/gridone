@@ -1,0 +1,19 @@
+[versions]
+androidGradlePlugin = "9.5.1"
+androidxCore = "1.18.0"
+androidxAppcompat = "1.7.1"
+androidxGamesActivity = "4.4.0"
+androidxMediarouter = "1.8.1"
+playServicesCastFramework = "22.3.1"
+junit = "4.13.2"
+
+[libraries]
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
+androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "androidxAppcompat" }
+androidx-games-activity = { module = "androidx.games:games-activity", version.ref = "androidxGamesActivity" }
+androidx-mediarouter = { module = "androidx.mediarouter:mediarouter", version.ref = "androidxMediarouter" }
+play-services-cast-framework = { module = "com.google.android.gms:play-services-cast-framework", version.ref = "playServicesCastFramework" }
+junit = { module = "junit:junit", version.ref = "junit" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }
